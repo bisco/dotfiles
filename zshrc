@@ -5,11 +5,13 @@
 # LANG
 #
 
+export TERM=xterm-256color
+
 #export LANG=ja_JP.UTF-8
 #xset -b
 #setopt brace_ccl
 
-export PATH=$HOME/.bin:$HOME/.local/bin:$PATH
+export PATH=$HOME/.bin:$HOME/.local/bin:$HOME/.cargo/bin/:$PATH
 if [[ "${OSTYPE}" == darwin* ]]; then
 # 何もしない
 else
@@ -38,7 +40,7 @@ alias tmux="tmux -2"
 
 # less source-highlight
 export LESS=' -R'
-#export LESSOPEN='| /opt/local/bin/src-hilite-lesspipe.sh %s'
+export LESSOPEN='| src-hilite-lesspipe.sh %s'
 
 #-------------------------------------------#
 # Default shell configuration
@@ -94,6 +96,12 @@ function get-branch-hash {
     echo `git rev-parse --short HEAD 2> /dev/null`
 }
 
+# nix-direnv がロードされているときに [nix] を表示する関数
+function nix-indicator {
+    if [[ -n "${IN_NIX_SHELL}" ]]; then
+      echo "%F{075}[nix]%f "
+    fi
+}
 
 if [ ${TERM} != "dumb" ] ; then
     case ${UID} in
@@ -101,15 +109,14 @@ if [ ${TERM} != "dumb" ] ; then
         PROMPT="%B%{${fg[magenta]}%}%/"$'\n'"#%{${reset_color}%}%b "
         PROMPT2="%B%{${fg[magenta]}%}%_#%{${reset_color}%}%b "
         SPROMPT="%B%{${fg[magenta]}%}%r is correct? [n,y,a,e]:%{${reset_color}%}%b "
-        #[ -n "${REMOTEHOST}${SSH_CONNECTION}" ] &&
-        PROMPT="%{${fg[red]}%}$(whoami)"@"$(echo ${HOST%%.*}) ${PROMPT}"
+        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%{${fg[red]}%}$(whoami)"@"$(echo ${HOST%%.*}) ${PROMPT}"
         ;;
     *)
-        PROMPT="%F{cyan}%/ %f"$'`branch-status-check`'$'\n'"%F{cyan}>%f "
-        PROMPT2="%{${fg[cyan]}%}%_>%{${reset_color}%} "
-        SPROMPT="%{${fg[cyan]}%}%r is correct? [n,y,a,e]:%{${reset_color}%} "
-        #[ -n "${REMOTEHOST}${SSH_CONNECTION}" ] &&
-        PROMPT="%{${fg[yellow]}%}$(whoami)"@"$(echo ${HOST%%.*}) ${PROMPT}"
+        PROMPT="%F{cyan}%/ %f"$'`nix-indicator`'$'`branch-status-check`'$'\n'"%F{cyan}>%f "
+
+        PROMPT2="%F{cyan}%_%f> "
+        SPROMPT="%F{cyan}%r is correct? [n,y,a,e]:%f "
+        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%F{yellow}$(whoami)@$(echo ${HOST%%.*}) ${PROMPT}"
         ;;
     esac
 else
@@ -342,3 +349,5 @@ fi
 if [ "$EMACS" ];then
     export TERM=xterm-color
 fi
+eval "$(/home/bisco/.local/bin/mise activate zsh)"
+eval "$(direnv hook zsh)"
