@@ -18,29 +18,13 @@ else
     export DISPLAY=`echo $SSH_CONNECTION | perl -lane 'print $F[0]'`:0.0
 fi
 
-# node.js
-# export PATH=$HOME/.bin/node/bin:$PATH
-# export NODE_PATH=$HOME/.bin/node/lib/node_modules
-
-# anaconda
-# export PATH=$HOME/.bin/anaconda/bin:$PATH
-# export DYLD_FALLBACK_LIBRARY_PATH=$HOME/.bin/anaconda/lib:/usr/local/lib:/usr/lib
-
-# Golang
-# export GOPATH=$HOME/work/go
-# export GOROOT=$HOME/go
-# export PATH=$GOROOT/bin:$PATH
-
-# snap
-# export PATH=/snap/bin:$PATH
-
 # alias
 alias less="less -x4"
 alias tmux="tmux -2"
 
 # less source-highlight
 export LESS=' -R'
-export LESSOPEN='| src-hilite-lesspipe.sh %s'
+type src-hilite-lesspipe.sh > /dev/null 2>&1 && export LESSOPEN='| src-hilite-lesspipe.sh %s'
 
 #-------------------------------------------#
 # Default shell configuration
@@ -237,35 +221,6 @@ alias df="df -h"
 
 alias su="su -l"
 
-case "${OSTYPE}" in
-    darwin*)
-        alias updateports="sudo port selfupdate; sudo port outdated"
-        alias portupgrade="sudo port upgrade installed"
-        ;;
-    freebsd*)
-    case ${UID} in
-        0)
-            updateports() 
-            {
-                if [ -f /usr/ports/.portsnap.INDEX ]
-                then
-                    portsnap fetch update
-                else
-                    portsnap fetch extract update
-                fi
-
-                (cd /usr/ports/; make index)
-
-                portversion -v -l \<
-            }
-            alias appsupgrade='pkgdb -F && BATCH=YES NO_CHECKSUM=YES portupgrade -a'
-            ;;
-    esac
-    ;;
-esac
-
-
-
 ## terminal configuration
 case "${TERM}" in
     xterm|xterm-256color|screen)
@@ -349,5 +304,6 @@ fi
 if [ "$EMACS" ];then
     export TERM=xterm-color
 fi
-eval "$(/home/bisco/.local/bin/mise activate zsh)"
-eval "$(direnv hook zsh)"
+
+[ -f ~/.local/bin/mise ] && eval "$(/home/bisco/.local/bin/mise activate zsh)"
+type direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
