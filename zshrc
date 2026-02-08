@@ -83,7 +83,7 @@ function get-branch-hash {
 # nix-direnv がロードされているときに [nix] を表示する関数
 function nix-indicator {
     if [[ -n "${IN_NIX_SHELL}" ]]; then
-      echo "%F{075}[nix]%f "
+      echo "%F{075}[$(echo ${name})($(echo ${IN_NIX_SHELL}))]%f"
     fi
 }
 
@@ -96,11 +96,12 @@ if [ ${TERM} != "dumb" ] ; then
         [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%{${fg[red]}%}$(whoami)"@"$(echo ${HOST%%.*}) ${PROMPT}"
         ;;
     *)
-        PROMPT="%F{cyan}%/ %f"$'`nix-indicator`'$'`branch-status-check`'$'\n'"%F{cyan}>%f "
+        PROMPT="%F{cyan}%/ %f"$'`branch-status-check`'$'\n'"%F{cyan}>%f "
 
         PROMPT2="%F{cyan}%_%f> "
         SPROMPT="%F{cyan}%r is correct? [n,y,a,e]:%f "
         [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%F{yellow}$(whoami)@$(echo ${HOST%%.*}) ${PROMPT}"
+        PROMPT=$'`nix-indicator`'${PROMPT}
         ;;
     esac
 else
