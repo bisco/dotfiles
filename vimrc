@@ -1,5 +1,8 @@
 " .vimrc written by nbisco
 
+" bellを全部止める
+set belloff=all
+
 " 補完時のpreviewを出さない
 set completeopt=menuone
 
