@@ -5,6 +5,36 @@ Set-PSReadLineOption -HistorySearchCursorMovesToEnd
 Set-PSReadLineKeyHandler -Key Ctrl+p -Function HistorySearchBackward
 Set-PSReadLineKeyHandler -Key Ctrl+n -Function HistorySearchForward
 
+Remove-Item Alias:ls -Force -ErrorAction SilentlyContinue
+
+# 手癖用
+function Test-LsLshrtOption {
+    param([string]$Option)
+
+    if ($Option -notmatch '^-') {
+        return $false
+    }
+
+    $chars = ($Option.TrimStart('-').ToCharArray() | Sort-Object) -join ''
+    return $chars -eq 'hlrst'
+}
+
+function ls {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Rest
+    )
+
+    if ($Rest | Where-Object { Test-LsLshrtOption $_ }) {
+        Get-ChildItem |
+            Sort-Object LastWriteTime |
+            Select-Object Mode, Length, LastWriteTime, Name
+        return
+    }
+
+    Get-ChildItem @Rest
+}
+
 
 # $PROFILEに追加
 
