@@ -8,27 +8,54 @@ Set-PSReadLineKeyHandler -Key Ctrl+n -Function HistorySearchForward
 
 # $PROFILEに追加
 
+function Get-BranchColor {
+    $output = git status --porcelain=v1 --untracked-files=normal 2>$null
+
+    if (-not $?) {
+        return "Gray"
+    }
+
+    if ([string]::IsNullOrEmpty($output)) {
+        return "Green"     # Clean
+    }
+    elseif ($output -match '(^|\n)\?\? ') {
+        return "Yellow"    # Untracked
+    }
+    elseif ($output -match 'M|A|D|R|C') {
+        return "Red"       # Modified/Staged
+    }
+    else {
+        return "Cyan"      # その他
+    }
+}
+
+function Get-BranchHash {
+    git rev-parse --short HEAD 2>$null
+}
+
+
 function prompt {
     $cwd = (Get-Location).Path
 
-    # gitブランチ取得（branch-status-checkに相当）
-    $branch = ""
-    if (Test-Path ".git") {
-        $b = git branch --show-current 2>$null
-        $status = git status --porcelain 2>$null
-        $dirty = if ($status) { "*" } else { "" }
-        $branch = " ($b$dirty)"
-    }
-
-    # SSH接続判定（REMOTEHOST/SSH_CONNECTIONに相当）
-    $prefix = ""
+    $prefix = "PS "
     if ($env:SSH_CONNECTION) {
         $prefix = "$env:USERNAME@$env:COMPUTERNAME "
     }
 
-    # 色付きプロンプト
-    Write-Host "${prefix}${cwd}${branch}" -ForegroundColor Cyan -NoNewline
-    Write-Host ""  # 改行
+    Write-Host "${prefix}${cwd}" -ForegroundColor Cyan -NoNewline
+
+    $branch = git branch --show-current 2>$null
+    if ($LASTEXITCODE -eq 0 -and $branch) {
+
+        $hash = Get-BranchHash
+        $color = Get-BranchColor
+
+        Write-Host " (" -ForegroundColor DarkGray -NoNewline
+        Write-Host "$branch@$hash" -ForegroundColor $color -NoNewline
+        Write-Host ")" -ForegroundColor DarkGray -NoNewline
+    }
+
+    Write-Host ""
     Write-Host ">" -ForegroundColor Cyan -NoNewline
-    return " "  # promptの戻り値が末尾につく
+    return " "
 }
