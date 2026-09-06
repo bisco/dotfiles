@@ -1,0 +1,218 @@
+# ~/.zshrc
+#
+# Portable, dependency-light zsh configuration.
+# External tools are optional: use them when available, otherwise keep working.
+
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
+
+# zsh exposes $PATH as the tied array $path.
+# Keep user-local tools first, and remove duplicate entries.
+path=(
+    "$HOME/.bin"
+    "$HOME/.local/bin"
+    "$HOME/.cargo/bin"
+    $path
+)
+typeset -U path
+
+# Headless X server fallback.
+# Respect DISPLAY when SSH/X forwarding or the environment already provides one.
+[[ "$OSTYPE" != darwin* && -z "$DISPLAY" ]] && export DISPLAY=:99
+
+# less
+export LESS='-R -x4'
+
+if (( $+commands[src-hilite-lesspipe.sh] )); then
+    export LESSOPEN='| src-hilite-lesspipe.sh %s'
+fi
+
+
+# -----------------------------------------------------------------------------
+# Shell options
+# -----------------------------------------------------------------------------
+
+setopt auto_cd
+setopt auto_pushd
+setopt correct
+setopt list_packed
+setopt noautoremoveslash
+setopt nolistbeep
+
+# Allow aliases such as ls to retain normal filename completion.
+setopt complete_aliases
+
+
+# -----------------------------------------------------------------------------
+# History
+# -----------------------------------------------------------------------------
+
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000
+SAVEHIST=100000
+
+setopt append_history
+setopt share_history
+setopt hist_expire_dups_first
+setopt hist_ignore_all_dups
+setopt hist_reduce_blanks
+
+
+# -----------------------------------------------------------------------------
+# Completion
+# -----------------------------------------------------------------------------
+
+# Optional user completion functions.
+[[ -d "$HOME/.zsh/functions/Completion" ]] &&
+    fpath=("$HOME/.zsh/functions/Completion" $fpath)
+
+autoload -Uz compinit
+compinit
+
+# Use the same basic colors as ls when possible.
+zstyle ':completion:*' list-colors \
+    'di=36' \
+    'ln=35' \
+    'so=32' \
+    'pi=33' \
+    'ex=31' \
+    'bd=46;34' \
+    'cd=43;34'
+
+
+# -----------------------------------------------------------------------------
+# Key bindings
+# -----------------------------------------------------------------------------
+
+bindkey -e
+
+# Ctrl-P / Ctrl-N:
+# search history using the text already entered at the beginning of the line.
+autoload -Uz history-search-end
+
+zle -N history-beginning-search-backward-end history-search-end
+zle -N history-beginning-search-forward-end  history-search-end
+
+bindkey '^P' history-beginning-search-backward-end
+bindkey '^N' history-beginning-search-forward-end
+bindkey '^[p' history-beginning-search-backward-end
+bindkey '^[n' history-beginning-search-forward-end
+
+
+# -----------------------------------------------------------------------------
+# Prompt
+# -----------------------------------------------------------------------------
+
+setopt prompt_subst
+
+autoload -Uz colors
+colors
+
+autoload -Uz add-zsh-hook
+autoload -Uz vcs_info
+
+# Git:
+#   green branch
+#   cyan  + = staged changes
+#   red   * = unstaged changes
+#
+# vcs_info is bundled with zsh, so no plugin is required.
+zstyle ':vcs_info:git:*' check-for-changes true
+zstyle ':vcs_info:git:*' get-revision true
+zstyle ':vcs_info:git:*' stagedstr   '%F{cyan}+%f'
+zstyle ':vcs_info:git:*' unstagedstr '%F{red}*%f'
+zstyle ':vcs_info:git:*' formats     '%F{green}%b%f(%F{244}%7.7i%f)%c%u%m'
+zstyle ':vcs_info:git:*' actionformats \
+    '%F{yellow}%b|%a%f(%F{244}%i%f)%c%u%m'
+
+zstyle ':vcs_info:git+set-message:*' hooks git-untracked
+
++vi-git-untracked() {
+    local untracked
+    untracked=$(git ls-files --others --exclude-standard 2>/dev/null | head -n 1)
+
+    [[ -n "$untracked" ]] &&
+        hook_com[misc]+='%F{yellow}?%f'
+}
+
+update_vcs_info() {
+    vcs_info
+}
+add-zsh-hook precmd update_vcs_info
+
+# Terminal title.
+set_terminal_title() {
+    [[ "$TERM" == dumb ]] && return
+    print -Pn '\e]0;%n@%m:%~\a'
+}
+add-zsh-hook precmd set_terminal_title
+
+
+if [[ "$TERM" == dumb ]]; then
+    # Keep the prompt usable even on minimal terminals.
+    if (( EUID == 0 )); then
+        PROMPT='%n@%m %/# '
+        PROMPT2='%_# '
+    else
+        PROMPT='%n@%m %/%# '
+        PROMPT2='%_%# '
+    fi
+
+    SPROMPT='%r is correct? [n,y,a,e]: '
+
+elif (( EUID == 0 )); then
+    # Root: make it deliberately obvious.
+    if [[ -n "$SSH_CONNECTION" || -n "$REMOTEHOST" ]]; then
+        PROMPT='%F{red}%n@%m%f %B%F{magenta}%/%f%b
+# '
+    else
+        PROMPT='%B%F{magenta}%/%f%b
+# '
+    fi
+
+    PROMPT2='%B%F{magenta}%_%f%b# '
+    SPROMPT='%B%F{magenta}%r is correct? [n,y,a,e]:%f%b '
+
+else
+    # Normal user.
+    if [[ -n "$SSH_CONNECTION" || -n "$REMOTEHOST" ]]; then
+        PROMPT='%F{yellow}%n@%m%f %F{cyan}%/%f ${vcs_info_msg_0_}
+%F{cyan}>%f '
+    else
+        PROMPT='%F{cyan}%/%f ${vcs_info_msg_0_}
+%F{cyan}>%f '
+    fi
+
+    PROMPT2='%F{cyan}%_%f> '
+    SPROMPT='%F{cyan}%r is correct? [n,y,a,e]:%f '
+fi
+
+
+# -----------------------------------------------------------------------------
+# Aliases
+# -----------------------------------------------------------------------------
+
+alias where='command -v'
+alias j='jobs -l'
+
+case "$OSTYPE" in
+    freebsd*|darwin*)
+        alias ls='ls -G'
+        ;;
+    linux*|msys*)
+        alias ls='ls --color=auto'
+        ;;
+esac
+
+# -----------------------------------------------------------------------------
+# Optional tools
+# -----------------------------------------------------------------------------
+
+# mise installed by the official installer.
+# Prefer mise already on PATH, but also support the official ~/.local/bin path.
+if (( $+commands[mise] )); then
+    eval "$(mise activate zsh)"
+elif [[ -x "$HOME/.local/bin/mise" ]]; then
+    eval "$("$HOME/.local/bin/mise" activate zsh)"
+fi
