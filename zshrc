@@ -12,11 +12,8 @@ export TERM=xterm-256color
 #setopt brace_ccl
 
 export PATH=$HOME/.bin:$HOME/.local/bin:$HOME/.cargo/bin/:$PATH
-if [[ "${OSTYPE}" == darwin* ]]; then
-# 何もしない
-else
-    export DISPLAY=`echo $SSH_CONNECTION | perl -lane 'print $F[0]'`:0.0
-fi
+# Mac以外で X転送してないときはDefault DISPLAY=:99とする
+[[ "${OSTYPE}" != darwin* && -z "$DISPLAY" ]] && export DISPLAY=:99
 
 # alias
 alias less="less -x4"
