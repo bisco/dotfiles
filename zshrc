@@ -1,307 +1,221 @@
-#users generic .zshrc file for zsh(1)
-
-## Environment variable configuration
+# ~/.zshrc
 #
-# LANG
-#
+# Portable, dependency-light zsh configuration.
+# External tools are optional: use them when available, otherwise keep working.
 
-export TERM=xterm-256color
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
 
-#export LANG=ja_JP.UTF-8
-#xset -b
-#setopt brace_ccl
+# zsh exposes $PATH as the tied array $path.
+# Keep user-local tools first, and remove duplicate entries.
+path=(
+    "$HOME/.bin"
+    "$HOME/.local/bin"
+    "$HOME/.cargo/bin"
+    $path
+)
+typeset -U path
 
-export PATH=$HOME/.bin:$HOME/.local/bin:$HOME/.cargo/bin/:$PATH
-# Mac以外で X転送してないときはDefault DISPLAY=:99とする
-[[ "${OSTYPE}" != darwin* && -z "$DISPLAY" ]] && export DISPLAY=:99
+# Headless X server fallback.
+# Respect DISPLAY when SSH/X forwarding or the environment already provides one.
+[[ "$OSTYPE" != darwin* && -z "$DISPLAY" ]] && export DISPLAY=:99
 
-# alias
-alias less="less -x4"
-alias tmux="tmux -2"
+# 環境固有設定があればそれも読み込み
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
-# less source-highlight
-export LESS=' -R'
-type src-hilite-lesspipe.sh > /dev/null 2>&1 && export LESSOPEN='| src-hilite-lesspipe.sh %s'
+# less
+export LESS='-R -x4'
 
-#-------------------------------------------#
-# Default shell configuration
-#-------------------------------------------#
-# set prompt
-setopt prompt_subst
-autoload -U colors; colors
-
-# get branch name and hash
-function branch-status-check {
-    local prefix branchname suffix
-    # .gitの中だから除外
-    if [[ "$PWD" =~ '/\.git(/.*)?$' ]]; then
-        return
-    fi
-    branchname=`get-branch-name`
-    # ブランチ名が無いので除外
-    if [[ -z $branchname ]]; then
-        return
-    fi
-    shorthash=`get-branch-hash`
-    prefix=`get-branch-status` #色だけ返ってくる
-    suffix='%{'${reset_color}'%}'
-    echo ${prefix}${branchname}\(${shorthash}\)${suffix}
-}
-
-function get-branch-name {
-    # gitディレクトリじゃない場合のエラーは捨てます
-    echo `git rev-parse --abbrev-ref HEAD 2> /dev/null`
-}
-
-function get-branch-status {
-    local res color
-    output=`git status --short 2> /dev/null`
-    if [ -z "$output" ]; then
-        res=':' # status Clean
-        color='%{'${fg[green]}'%}'
-    elif [[ $output =~ "[\n]?\?\? " ]]; then
-        res='?:' # Untracked
-        color='%{'${fg[yellow]}'%}'
-    elif [[ $output =~ "[\n]? M " ]]; then
-        res='M:' # Modified
-        color='%{'${fg[red]}'%}'
-    else
-        res='A:' # Added to commit
-        color='%{'${fg[cyan]}'%}'
-    fi
-    # echo ${color}${res}'%{'${reset_color}'%}'
-    echo ${color} # 色だけ返す
-}
-
-function get-branch-hash {
-    echo `git rev-parse --short HEAD 2> /dev/null`
-}
-
-# nix-direnv がロードされているときに [nix] を表示する関数
-function nix-indicator {
-    if [[ -n "${IN_NIX_SHELL}" ]]; then
-      echo "%F{075}[$(echo ${name})($(echo ${IN_NIX_SHELL}))]%f"
-    fi
-}
-
-if [ ${TERM} != "dumb" ] ; then
-    case ${UID} in
-    0)
-        PROMPT="%B%{${fg[magenta]}%}%/"$'\n'"#%{${reset_color}%}%b "
-        PROMPT2="%B%{${fg[magenta]}%}%_#%{${reset_color}%}%b "
-        SPROMPT="%B%{${fg[magenta]}%}%r is correct? [n,y,a,e]:%{${reset_color}%}%b "
-        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%{${fg[red]}%}$(whoami)"@"$(echo ${HOST%%.*}) ${PROMPT}"
-        ;;
-    *)
-        PROMPT="%F{cyan}%/ %f"$'`branch-status-check`'$'\n'"%F{cyan}>%f "
-
-        PROMPT2="%F{cyan}%_%f> "
-        SPROMPT="%F{cyan}%r is correct? [n,y,a,e]:%f "
-        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && PROMPT="%F{yellow}$(whoami)@$(echo ${HOST%%.*}) ${PROMPT}"
-        PROMPT=$'`nix-indicator`'${PROMPT}
-        ;;
-    esac
-else
-    case ${UID} in
-    0)
-        PROMPT="%B%{%}%/#%{%}%b "
-        PROMPT2="%B%{%}%_#%{%}%b "
-        SPROMPT="%B%{%}%r is correct? [n,y,a,e]:%{%}%b "
-        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && 
-        PROMPT="%{%}$(echo ${HOST%%.*} | tr '[a-z]' '[A-Z]') ${PROMPT}"
-        ;;
-    *)
-        PROMPT="%{%}%/%%%{%} "
-        PROMPT2="%{%}%_%%%{%} "
-        SPROMPT="%{%}%r is correct? [n,y,a,e]:%{%} "
-        [ -n "${REMOTEHOST}${SSH_CONNECTION}" ] && 
-        PROMPT="%{%}$(echo ${HOST%%.*} | tr '[a-z]' '[A-Z]') ${PROMPT}"
-        ;;
-    esac
+if (( $+commands[src-hilite-lesspipe.sh] )); then
+    export LESSOPEN='| src-hilite-lesspipe.sh %s'
 fi
 
 
+# -----------------------------------------------------------------------------
+# Shell options
+# -----------------------------------------------------------------------------
 
-# auto change directory
-#
 setopt auto_cd
-
-# auto directory pushd that you can get dirs list by cd -[tab]
-#
 setopt auto_pushd
-
-# command correct edition before each completion attempt
-#
 setopt correct
-
-# compacked complete list display
-#
 setopt list_packed
-
-# no remove postfix slash of command line
-#
 setopt noautoremoveslash
-
-# no beep sound when complete list displayed
-#
 setopt nolistbeep
 
-
-## Keybind configuration
-#
-# emacs like keybind (e.x. Ctrl-a goes to head of a line and Ctrl-e goes 
-#   to end of it)
-#
-bindkey -e
+# Allow aliases such as ls to retain normal filename completion.
+setopt complete_aliases
 
 
-# historical backward/forward search with linehead string binded to ^P/^N
-#
-autoload -U history-search-end
-zle -N history-beginning-search-backward-end history-search-end
-zle -N history-beginning-search-forward-end history-search-end
-bindkey "^p" history-beginning-search-backward-end
-bindkey "^n" history-beginning-search-forward-end
-bindkey "\\ep" history-beginning-search-backward-end
-bindkey "\\en" history-beginning-search-forward-end
+# -----------------------------------------------------------------------------
+# History
+# -----------------------------------------------------------------------------
 
-
-## Command history configuration
-#
-HISTFILE=~/.zsh_history
+HISTFILE="$HOME/.zsh_history"
 HISTSIZE=100000
 SAVEHIST=100000
-setopt hist_ignore_dups     # ignore duplication command history list
-setopt share_history        # share command history data
+
+setopt append_history
+setopt share_history
+setopt hist_expire_dups_first
+setopt hist_ignore_all_dups
+setopt hist_reduce_blanks
 
 
-## Completion configuration
+# -----------------------------------------------------------------------------
+# Completion
+# -----------------------------------------------------------------------------
+
+# Optional user completion functions.
+[[ -d "$HOME/.zsh/functions/Completion" ]] &&
+    fpath=("$HOME/.zsh/functions/Completion" $fpath)
+
+autoload -Uz compinit
+compinit
+
+# Use the same basic colors as ls when possible.
+zstyle ':completion:*' list-colors \
+    'di=36' \
+    'ln=35' \
+    'so=32' \
+    'pi=33' \
+    'ex=31' \
+    'bd=46;34' \
+    'cd=43;34'
+
+
+# -----------------------------------------------------------------------------
+# Key bindings
+# -----------------------------------------------------------------------------
+
+bindkey -e
+
+# Ctrl-P / Ctrl-N:
+# search history using the text already entered at the beginning of the line.
+autoload -Uz history-search-end
+
+zle -N history-beginning-search-backward-end history-search-end
+zle -N history-beginning-search-forward-end  history-search-end
+
+bindkey '^P' history-beginning-search-backward-end
+bindkey '^N' history-beginning-search-forward-end
+bindkey '^[p' history-beginning-search-backward-end
+bindkey '^[n' history-beginning-search-forward-end
+
+
+# -----------------------------------------------------------------------------
+# Prompt
+# -----------------------------------------------------------------------------
+
+setopt prompt_subst
+
+autoload -Uz colors
+colors
+
+autoload -Uz add-zsh-hook
+autoload -Uz vcs_info
+
+# Git:
+#   green branch
+#   cyan  + = staged changes
+#   red   * = unstaged changes
 #
-fpath=(~/.zsh/functions/Completion ${fpath})
-autoload -U compinit; compinit
+# vcs_info is bundled with zsh, so no plugin is required.
+zstyle ':vcs_info:git:*' check-for-changes true
+zstyle ':vcs_info:git:*' get-revision true
+zstyle ':vcs_info:git:*' stagedstr   '%F{cyan}+%f'
+zstyle ':vcs_info:git:*' unstagedstr '%F{red}*%f'
+zstyle ':vcs_info:git:*' formats     '%F{green}%b%f(%F{244}%7.7i%f)%c%u%m'
+zstyle ':vcs_info:git:*' actionformats \
+    '%F{yellow}%b|%a%f(%F{244}%i%f)%c%u%m'
+
+zstyle ':vcs_info:git+set-message:*' hooks git-untracked
+
++vi-git-untracked() {
+    local untracked
+    untracked=$(git ls-files --others --exclude-standard 2>/dev/null | head -n 1)
+
+    [[ -n "$untracked" ]] &&
+        hook_com[misc]+='%F{yellow}?%f'
+}
+
+update_vcs_info() {
+    vcs_info
+}
+add-zsh-hook precmd update_vcs_info
+
+# Terminal title.
+set_terminal_title() {
+    [[ "$TERM" == dumb ]] && return
+    print -Pn '\e]0;%n@%m:%~\a'
+}
+add-zsh-hook precmd set_terminal_title
 
 
-## zsh editor
-#
-autoload -U zed
+if [[ "$TERM" == dumb ]]; then
+    # Keep the prompt usable even on minimal terminals.
+    if (( EUID == 0 )); then
+        PROMPT='%n@%m %/# '
+        PROMPT2='%_# '
+    else
+        PROMPT='%n@%m %/%# '
+        PROMPT2='%_%# '
+    fi
+
+    SPROMPT='%r is correct? [n,y,a,e]: '
+
+elif (( EUID == 0 )); then
+    # Root: make it deliberately obvious.
+    if [[ -n "$SSH_CONNECTION" || -n "$REMOTEHOST" ]]; then
+        PROMPT='%F{red}%n@%m%f %B%F{magenta}%/%f%b
+# '
+    else
+        PROMPT='%B%F{magenta}%/%f%b
+# '
+    fi
+
+    PROMPT2='%B%F{magenta}%_%f%b# '
+    SPROMPT='%B%F{magenta}%r is correct? [n,y,a,e]:%f%b '
+
+else
+    # Normal user.
+    if [[ -n "$SSH_CONNECTION" || -n "$REMOTEHOST" ]]; then
+        PROMPT='%F{yellow}%n@%m%f %F{cyan}%/%f ${vcs_info_msg_0_}
+%F{cyan}>%f '
+    else
+        PROMPT='%F{cyan}%/%f ${vcs_info_msg_0_}
+%F{cyan}>%f '
+    fi
+
+    PROMPT2='%F{cyan}%_%f> '
+    SPROMPT='%F{cyan}%r is correct? [n,y,a,e]:%f '
+fi
 
 
-## Prediction configuration
-#
-#autoload predict-on
-#predict-off
+# -----------------------------------------------------------------------------
+# Aliases
+# -----------------------------------------------------------------------------
 
+alias where='command -v'
+alias j='jobs -l'
 
-## Alias configuration
-#
-# expand aliases before completing
-#
-setopt complete_aliases     # aliased ls needs if file/dir completions work
-
-alias where="command -v"
-alias j="jobs -l"
-
-case "${OSTYPE}" in
+case "$OSTYPE" in
     freebsd*|darwin*)
-        alias ls="ls -G -w"
+        alias ls='ls -G'
         ;;
-    linux*|msys)
-        alias ls="ls --color"
-        ;;
-esac
-
-alias la="ls -a"
-alias lf="ls -F"
-alias ll="ls -l"
-
-alias du="du -h"
-alias df="df -h"
-
-alias su="su -l"
-
-## terminal configuration
-case "${TERM}" in
-    xterm|xterm-256color|screen)
-        export LSCOLORS=gxfxcxdxbxegedabagacad
-        export LS_COLORS='di=36:ln=35:so=32:pi=33:ex=31:bd=46;34:cd=43;34:su=41;30:sg=46;30:tw=42;30:ow=43;30'
-        zstyle ':completion:*' list-colors 'di=36' 'ln=35' 'so=32' 'ex=31' 'bd=46;34' 'cd=43;34'
-        ;;
-    kterm-color)
-        stty erase '^H'
-        export LSCOLORS=gxfxcxdxbxegedabagacad
-        export LS_COLORS='di=36:ln=35:so=32:pi=33:ex=31:bd=46;34:cd=43;34:su=41;30:sg=46;30:tw=42;30:ow=43;30'
-        zstyle ':completion:*' list-colors 'di=34' 'ln=35' 'so=32' 'ex=31' 'bd=46;34' 'cd=43;34'
-        ;;
-    kterm)
-        stty erase '^H'
-        ;;
-    cons25)
-        unset LANG
-        export LSCOLORS=ExFxCxdxBxegedabagacad
-        export LS_COLORS='di=01;34:ln=01;35:so=01;32:ex=01;31:bd=46;34:cd=43;34:su=41;30:sg=46;30:tw=42;30:ow=43;30'
-        zstyle ':completion:*' list-colors 'di=;34;1' 'ln=;35;1' 'so=;32;1' 'ex=31;1' 'bd=46;34' 'cd=43;34'
-        ;;
-    jfbterm-color)
-        export LSCOLORS=gxFxCxdxBxegedabagacad
-        export LS_COLORS='di=01;36:ln=01;35:so=01;32:ex=01;31:bd=46;34:cd=43;34:su=41;30:sg=46;30:tw=42;30:ow=43;30'
-        zstyle ':completion:*' list-colors 'di=;36;1' 'ln=;35;1' 'so=;32;1' 'ex=31;1' 'bd=46;34' 'cd=43;34'
+    linux*|msys*)
+        alias ls='ls --color=auto'
         ;;
 esac
 
+# -----------------------------------------------------------------------------
+# Optional tools
+# -----------------------------------------------------------------------------
 
-
-
-## load user .zshrc configuration file
-#
-[ -f ~/.zshrc.mine ] && source ~/.zshrc.mine
-
-# set terminal title including current directory
-case "${TERM}" in
-    kterm*|xterm*)
-        precmd() {
-            echo -ne "\033]0;${USER}@${HOST%%.*}:${PWD}\007"
-        }
-        ;;
-esac
-
-if [ "$TERM" = "screen" ]; then
-    chpwd() { echo -n "_`dirs`\\" }
-    preexec() {
-        emulate -L zsh
-        local -a cmd; cmd=(${(z)2})
-        case $cmd[1] in
-        fg)
-            if (( $#cmd == 1 )); then
-                cmd = (builtin jobs -l %+)
-            else
-                cmd = (builtin jobs -l $cmd[2])
-            fi
-            ;;
-        %*)
-            cmd = (builtin jobs -l $cmd[1])
-            ;;
-        cd)
-            if (( $#cmd == 2 )); then
-                cmd[1] = $cmd[2]
-            fi
-            ;&
-        *)
-            echo -n "k$cmd[1]:t\\"
-            return
-            ;;
-        esac
-        local -A jt; jt=(${(kv)jobtexts})
-
-        $cmd >>(read num rest
-        cmd=(${(z)${(e):-\$jt$num}})
-        echo -n "k$cmd[1]:t\\") 2> /dev/null
-    }
-    chpwd
+# mise installed by the official installer.
+# Prefer mise already on PATH, but also support the official ~/.local/bin path.
+if (( $+commands[mise] )); then
+    eval "$(mise activate zsh)"
+elif [[ -x "$HOME/.local/bin/mise" ]]; then
+    eval "$("$HOME/.local/bin/mise" activate zsh)"
 fi
-
-if [ "$EMACS" ];then
-    export TERM=xterm-color
-fi
-
-[ -f ~/.local/bin/mise ] && eval "$(/home/bisco/.local/bin/mise activate zsh)"
-type direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
